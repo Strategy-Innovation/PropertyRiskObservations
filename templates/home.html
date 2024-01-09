@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Record Risk Related Observations</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f0f0;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+
+        #container {
+            width: 70%;
+            margin: 150px auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1, h2 {
+            color: #333;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        #audioPlayer {
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        #successMessage {
+            display: none;
+            color: #4CAF50;
+            font-size: 18px;
+            margin-top: 20px;
+        }
+
+        #logo {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 300px; /* Adjust the width as needed */
+            height: auto;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/recordrtc"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+
+<body>
+    <div id="container">
+        <img id="logo" src="https://asset.brandfetch.io/idvsnIxs94/idytuhans7.png" alt="Your Logo" style="width: 300px; height: auto;">
+        <h1>Record Risk Related Observations</h1>
+        <h2>Please provide the client-specific Risk Recommendation along with Industry_type, Sum_insured</h2>
+        
+        <form id="recordingForm" method="post" enctype="multipart/form-data" action="https://riskrobservation.azurewebsites.net/upload/">
+            <button id="recordButton" style="background-color: #2196F3;">Record</button>
+            <button id="stopButton" disabled style="background-color: #FF9800;">Stop</button>
+            <br><br>
+            <audio id="audioPlayer" controls></audio>
+            <br><br>
+            <button id="submitBtn" disabled style="background-color: #4CAF50;">Submit</button>
+            <p id="successMessage"></p>
+        </form>
+    </div>
+
+    <script>
+        const recordButton = document.getElementById('recordButton');
+        const stopButton = document.getElementById('stopButton');
+        const audioPlayer = document.getElementById('audioPlayer');
+        const submitBtn = document.getElementById('submitBtn');
+        const successMessage = document.getElementById('successMessage');
+
+        let recorder;
+
+        recordButton.addEventListener('click', startRecording);
+        stopButton.addEventListener('click', stopRecording);
+        submitBtn.addEventListener('click', submitRecording);
+
+        function startRecording() {
+            recordButton.disabled = true;
+            stopButton.disabled = false;
+            submitBtn.disabled = true;
+            audioPlayer.src = '';
+
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(function (stream) {
+                    recorder = RecordRTC(stream, {
+                        type: 'audio',
+                        mimeType: 'audio/m4a'
+                    });
+                    recorder.startRecording();
+                })
+                .catch(function (err) {
+                    console.error('Error accessing microphone', err);
+                });
+        }
+
+        function stopRecording() {
+            recordButton.disabled = false;
+            stopButton.disabled = true;
+            submitBtn.disabled = false;
+
+            recorder.stopRecording(function () {
+                let blob = recorder.getBlob();
+                audioPlayer.src = URL.createObjectURL(blob);
+            });
+        }
+
+        function submitRecording() {
+            let formData = new FormData();
+            const fileName = generateFileName() + '.wav';
+            formData.append('file', recorder.getBlob(), fileName);
+            axios.post('https://riskrobservation.azurewebsites.net/upload/', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            })
+            
+            .then(function (response) {
+                console.log('Upload successful');
+                console.log(response.data);
+        
+                // Update the UI with success message
+                successMessage.innerText = 'Recording submitted successfully!! -->';
+                successMessage.style.display = 'block';
+        
+                // Disable recording-related buttons
+                recordButton.disabled = true;
+                stopButton.disabled = true;
+                submitBtn.disabled = true;
+        
+                // Add a link to navigate to the download page
+                const downloadLink = document.createElement('a');
+                downloadLink.href = `https://riskrobservation.azurewebsites.net/download/?doc_path=${response.data.doc_path}`;
+                downloadLink.innerText = 'Download Generated Document';
+                successMessage.appendChild(downloadLink);
+        
+                // Navigate to the download page using a GET request
+                window.location.href = `https://riskrobservation.azurewebsites.net/download/?doc_path=${response.data.doc_path}`;
+            })
+            .catch(function (error) {
+                console.error('Upload failed');
+                console.error(error);
+            });
+        }      
+        
+        function generateFileName() {
+            const now = new Date();
+            const timestamp = now.toISOString().replace(/[-T:]/g, '').split('.')[0];
+            return 'recording_' + timestamp;
+        }
+
+    </script>
+</body>
+
+</html>
