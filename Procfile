@@ -1,1 +1,2 @@
-Worker: python main.py
+web: home.hmtl
+worker: python main.py
